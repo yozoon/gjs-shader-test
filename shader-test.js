@@ -113,9 +113,63 @@ function onDestroy(widget) {
     Gtk.main_quit();
 }
 
+// spawnCommandLine:
+// @command_line: a command line
+//
+// Runs @command_line in the background, handling any errors that
+// occur when trying to parse or start the program.
+function spawnCommandLine(command_line) {
+    try {
+        let [success, argv] = GLib.shell_parse_argv(command_line);
+        trySpawn(argv);
+    } catch (err) {
+        _handleSpawnError(command_line, err);
+    }
+}
+
+// trySpawn:
+// @argv: an argv array
+//
+// Runs @argv in the background. If launching @argv fails,
+// this will throw an error.
+function trySpawn(argv)
+{
+    var success, pid, out;
+    try {
+        [success, pid] = GLib.spawn_sync(null, argv, null,
+                                          GLib.SpawnFlags.SEARCH_PATH,
+                                          null, null, out);
+    } catch (err) {
+        /* Rewrite the error in case of ENOENT */
+        if (err.matches(GLib.SpawnError, GLib.SpawnError.NOENT)) {
+            throw new GLib.SpawnError({ code: GLib.SpawnError.NOENT,
+                                        message: _("Command not found") });
+        } else if (err instanceof GLib.Error) {
+            // The exception from gjs contains an error string like:
+            //   Error invoking GLib.spawn_command_line_async: Failed to
+            //   execute child process "foo" (No such file or directory)
+            // We are only interested in the part in the parentheses. (And
+            // we can't pattern match the text, since it gets localized.)
+            let message = err.message.replace(/.*\((.+)\)/, '$1');
+            throw new (err.constructor)({ code: err.code,
+                                          message: message });
+        } else {
+            throw err;
+        }
+    }
+    log(out);
+}
+
+function _handleSpawnError(command, err) {
+    let title = _("Execution of “%s” failed:").format(command);
+    log(title +": " + err.message);
+}
+
 Gtk.init(null);
 GtkClutter.init(null, 0);
 Clutter.init(null, 0);
+
+spawnCommandLine("uname -r");
 
 let shaderEffect = new ShaderEffect();
 
