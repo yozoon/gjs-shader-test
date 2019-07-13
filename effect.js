@@ -13,7 +13,7 @@ function readShaderFile(filename) {
     let stream = input_file.read(null);
     let data = stream.read_bytes(size, null).get_data();
     stream.close(null);
-    return ByteArray.toString(data); //data.toString();
+    return ByteArray.toString(data);
 }
 
 var kawase_down_shader = readShaderFile("kawase_down.glsl");
